@@ -1,5 +1,3 @@
-Here’s the full README in clean Markdown format:
-
 ````md
 # Project Setup
 
