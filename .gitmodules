@@ -1,0 +1,6 @@
+[submodule "Scraper"]
+	path = Scraper
+	url = https://github.com/Kasnav/Scraper
+[submodule "Website"]
+	path = Website
+	url = https://github.com/RishimaMitra/Website
