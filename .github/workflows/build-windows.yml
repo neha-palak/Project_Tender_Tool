@@ -34,7 +34,7 @@ jobs:
       #     --add-data "Website;Website"
       #     desktop_app.py
       - name: Build EXE
-        run: pyinstaller --windowed --name TenderTool --hidden-import Website_2.server --add-data "Website_2;Website_2" desktop_app.py
+        run: pyinstaller --windowed --name TenderTool --hidden-import Websitecopy.server --add-data "Websitecopy;Websitecopy" desktop_app.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
