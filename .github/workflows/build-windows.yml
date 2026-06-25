@@ -26,13 +26,15 @@ jobs:
       #       --name TenderTool ^
       #       --add-data "Website;Website" ^
       #       desktop_app.py
+      # - name: Build EXE
+      #   run: >
+      #     pyinstaller
+      #     --windowed
+      #     --name TenderTool
+      #     --add-data "Website;Website"
+      #     desktop_app.py
       - name: Build EXE
-        run: >
-          pyinstaller
-          --windowed
-          --name TenderTool
-          --add-data "Website;Website"
-          desktop_app.py
+        run: pyinstaller --windowed --name TenderTool --hidden-import Website.server --add-data "Website;Website" desktop_app.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
