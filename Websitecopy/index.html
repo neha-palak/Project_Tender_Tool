@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sensio — Tender Intelligence Dashboard</title>
+  <link rel="stylesheet" href="base.css" />
+  <link rel="stylesheet" href="components.css" />
+  <link rel="stylesheet" href="pages.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+ 
+<div class="app-shell">
+ 
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-mark">S</div>
+      <div class="sidebar-logo-text">Sensio<span>Tender Intelligence</span></div>
+    </div>
+ 
+    <nav class="sidebar-nav">
+      <div class="sidebar-section-label">Main</div>
+      <a href="index.html" class="nav-item active">
+        <span class="nav-icon"></span><span class="nav-label">Dashboard</span>
+      </a>
+      <a href="tenders.html" class="nav-item">
+        <span class="nav-icon"></span><span class="nav-label">All Tenders</span>
+      </a>
+      <a href="saved.html" class="nav-item">
+        <span class="nav-icon"></span><span class="nav-label">Saved Tenders</span>
+      </a>
+      <a href="analytics.html" class="nav-item">
+        <span class="nav-icon"></span><span class="nav-label">Analytics Suite</span>
+      </a>
+    </nav>
+  </aside>
+ 
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <button id="sidebarToggleBtn" class="btn btn-ghost" style="padding: 6px 10px; font-size: 14px;"><span>◀</span></button>
+        <div class="topbar-title">Intelligence Dashboard</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="avatar">S</div>
+      </div>
+    </header>
+ 
+    <main class="page-content">
+      <div class="dashboard-hero fade-in-up">
+        <h1 class="hero-title">Tender <span>Intelligence</span> Hub</h1>
+        <p class="hero-subtitle">Automated analytics monitoring software — healthcare, wearables &amp; defence vectors.</p>
+      </div>
+
+      <div class="chart-card fade-in-up" style="margin-bottom: 32px;">
+        <div class="chart-title" style="display: flex; align-items: center; gap: 8px;">📈 Top 10 High Relevancy Match Curve vs Contract Value Matrix</div>
+        <div style="height: 320px; position: relative; width: 100%;">
+          <canvas id="topTenPerformanceChart"></canvas>
+        </div>
+      </div>
+
+      <div class="fade-in-up">
+        <div class="section-header">
+          <div>
+            <div class="section-title">🏆 Top 10 High Relevancy Tenders This Week</div>
+            <div class="section-subtitle">Highest relevancy matching items filtered from current scraper pipeline sweeps</div>
+          </div>
+          <a href="tenders.html" class="section-action">Browse All Systems →</a>
+        </div>
+        <div id="topTenContainer" class="tender-grid"></div>
+      </div>
+    </main>
+  </div>
+</div>
+ 
+<div class="modal-overlay" id="tenderModalOverlay">
+  <div class="modal" id="tenderModal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Tender Details</div>
+      <button class="modal-close" data-modal-close="tenderModalOverlay">✕</button>
+    </div>
+    <div id="modalGrid"></div>
+    <div class="modal-section">
+      <div class="modal-section-label">Scope Description</div>
+      <div id="modalDescription"></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-label">Eligibility Protocols</div>
+      <div id="modalEligibility"></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-label">Action Redirects</div>
+      <div id="modalLink"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-modal-close="tenderModalOverlay">Dismiss View</button>
+    </div>
+  </div>
+</div>
+ 
+<script src="data.js"></script>
+<script src="ui.js"></script>
+<script>
+  performanceChartInstance = null;
+  setInterval(() => {
+    console.log('Refreshing dashboard data to reflect latest scraper updates...');
+    renderTopTenWidget();
+    renderTopTenPerformanceChart();
+  }, 3000); // Refresh every 30 seconds to reflect new data from scrapers
+
+  function renderTopTenWidget() {
+    const container = document.getElementById('topTenContainer');
+    if (!container) return;
+
+    const records = [...window.SensioData.tenders]
+      .sort((a, b) => b.relevancyScore - a.relevancyScore)
+      .slice(0, 10);
+    
+
+    container.innerHTML = records.map(item => {
+      const remainingDays = calculateDaysRemaining(item.closingDate);
+      let timeHtml = '';
+      
+      if (remainingDays < 0) {
+        timeHtml = `<div class="urgency-badge" style="background-color:#fee2e2; color:#ef4444;">Expired</div>`;
+      } else if (remainingDays <= 7) {
+        timeHtml = `<div class="urgency-badge urgency-closing">⏰ Closing Soon (${remainingDays}d remaining)</div>`;
+      } else {
+        timeHtml = `<div class="urgency-badge urgency-active">✅ Active (${remainingDays}d remaining)</div>`;
+      }
+
+      const isSaved = isTenderSaved(item.id);
+
+      return `
+        <div class="tender-card fade-in-up">
+          <button class="save-btn ${isSaved ? 'saved' : ''}" onclick="handleSaveToggle('${item.id}', this)" title="${isSaved ? 'Remove from Saved' : 'Save Tender'}">
+            ${isSaved ? '⭐' : '☆'}
+          </button>
+          <div>
+            <h3 class="tender-card-title">${item.title}</h3>
+            ${timeHtml}
+            <div class="tender-card-dates">
+              <div class="date-row"><span class="date-label">Opens:</span><span class="date-val">${item.openingDate}</span></div>
+              <div class="date-row"><span class="date-label">Closes:</span><span class="date-val">${item.closingDate}</span></div>
+            </div>
+          </div>
+          <div class="relevancy-score-container">
+            <span class="relevancy-label">Match Relevancy</span>
+            <span class="relevancy-pill">${(item.relevancyScore * 100).toFixed(0)}%</span>
+          </div>
+          <button class="btn btn-ghost" onclick="openTenderModal('${item.id}')" style="margin-top:14px; width:100%; justify-content:center; font-size:13px;">View Specifications</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderTopTenPerformanceChart() {
+    const ctx = document.getElementById('topTenPerformanceChart');
+    if (!ctx) return;
+
+      if (performanceChartInstance !== null) {
+    performanceChartInstance.destroy();
+  }
+
+    const records = [...window.SensioData.tenders]
+      .sort((a, b) => b.relevancyScore - a.relevancyScore)
+      .slice(0, 10);
+
+    const labels = records.map(item => item.id);
+    const relevancyData = records.map(item => (item.relevancyScore * 100).toFixed(0));
+    const budgetDataM = records.map(item => (item.budgetINR / 1000000).toFixed(1));
+
+    performanceChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Match Relevancy (%)',
+            data: relevancyData,
+            borderColor: '#0d9488',
+            backgroundColor: 'rgba(13, 148, 136, 0.05)',
+            borderWidth: 3,
+            tension: 0.2,
+            yAxisID: 'yRelevancy',
+            pointBackgroundColor: '#0d9488',
+            pointRadius: 4
+          },
+          {
+            label: 'Contract Value (Million ₹)',
+            data: budgetDataM,
+            borderColor: '#0284c7',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [6, 4],
+            tension: 0.2,
+            yAxisID: 'yBudget',
+            pointBackgroundColor: '#0284c7',
+            pointRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              title: (items) => {
+                const id = items[0].label;
+                const match = records.find(r => r.id === id);
+                return match ? match.title : id;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          yRelevancy: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: 'Relevancy Match Score (%)', color: '#0d9488', font: { weight: '600' } },
+            min: 0,
+            max: 100
+          },
+          yBudget: {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: 'Estimated Budget (M ₹)', color: '#0284c7', font: { weight: '600' } },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+</script>
+</body>
+</html>
