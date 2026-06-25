@@ -97,9 +97,3 @@ python3 -m Scraper.main
 * Ensure Redis is running before starting the scraper.
 
 ```
-
-If you want, I can also add:
-- Docker setup
-- Makefile / task runner
-- One-line install script (`setup.sh`)
-```
