@@ -2,7 +2,7 @@ import threading
 import time
 import webview
 
-from Website.server import app
+from Websitecopy.server import app
 
 
 def run_flask():
