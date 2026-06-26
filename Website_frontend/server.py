@@ -89,11 +89,6 @@ def calculate_days_remaining(closing_date_str):
 # ═══════════════════════════════════════════════════════════════
 @app.route('/api/sensio-stream', methods=['GET'])
 def stream_excel_data():
-    # excel_path = "live_tenders_pipeline.xlsx"
-    # excel_path = "../Scraper/live_tenders_pipeline.xlsx"
-
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
     excel_path = os.path.join(BASE_DIR, "live_tenders_pipeline.xlsx")
     
     print("Current working dir:", os.getcwd())
