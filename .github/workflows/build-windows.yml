@@ -14,7 +14,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.9"
 
       - name: Install dependencies
         run: |
@@ -33,8 +33,17 @@ jobs:
       #     --name TenderTool
       #     --add-data "Website;Website"
       #     desktop_app.py
+      # - name: Build EXE
+      #   # run: pyinstaller --windowed --name TenderTool --hidden-import Website_frontend.server --add-data "Website_frontend;Website_frontend" desktop_app.py
+      #   run: pyinstaller ^
+      #     --onefile ^
+      #     --windowed ^
+      #     --name TenderTool ^
+      #     --hidden-import Website_frontend.server ^
+      #     --add-data "Website_frontend;Website_frontend" ^
+      #     desktop_app.py
       - name: Build EXE
-        run: pyinstaller --windowed --name TenderTool --hidden-import Website_frontend.server --add-data "Website_frontend;Website_frontend" desktop_app.py
+        run: pyinstaller --onefile --windowed --name TenderTool --hidden-import Website_frontend.server --add-data "Website_frontend;Website_frontend" windows_app.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
