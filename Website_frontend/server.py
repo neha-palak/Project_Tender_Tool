@@ -14,7 +14,7 @@ import sys
 
 
 if getattr(sys, "frozen", False):
-    BASE_DIR = os.path.join(sys._MEIPASS, "Website")
+    BASE_DIR = os.path.join(sys._MEIPASS, "Website_frontend")
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
