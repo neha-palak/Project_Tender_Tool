@@ -30,4 +30,5 @@ window = webview.create_window(
     height=900
 )
 
-webview.start()
+# webview.start()
+webview.start(gui="edgechromium")
