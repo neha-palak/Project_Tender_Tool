@@ -1,8 +1,8 @@
-from Scraper.datasetManager import json_to_excel
+from Scraper_backend.datasetManager import json_to_excel
 
 json_to_excel(
-    json_filename="file.json",
-    excel_filename="live_tenders_pipeline.xlsx"
+    json_filename="uk_file.json",
+    excel_filename="uk_live_tenders_pipeline.xlsx"
 )
 
 print("Excel generated")

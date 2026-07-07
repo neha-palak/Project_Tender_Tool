@@ -2,7 +2,11 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import json, pandas as pd
 
-from Scraper.target_profiles import HealthTargetProfiles, DefenceTargetProfiles, CorporateTargetProfiles, PetsTargetProfiles
+from Scraper_backend.target_profiles import HealthTargetProfiles, DefenceTargetProfiles, CorporateTargetProfiles, PetsTargetProfiles
+
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
 print("✓ Model loaded")
@@ -20,7 +24,11 @@ pets_vec = pets_emb.mean(axis=0, keepdims=True)
 
 
 def score_tender(tender: dict, threshold=0.35) -> dict:
-    text = f"{tender.get('TenderTitle', '')} {tender.get('WorkDescription', '')}"
+    # text = f"{tender.get('TenderTitle', '')} {tender.get('WorkDescription', '')}"
+    text = (
+        f"{tender.get('Tender Title', '')} "
+        f"{tender.get('Tender Description', '')}"
+    )
     vec  = model.encode([text], normalize_embeddings=True)
 
     h_score = float(cosine_similarity(vec, health_vec)[0][0])
@@ -52,32 +60,87 @@ def score_tender(tender: dict, threshold=0.35) -> dict:
 
 print("✓ score_tender() ready")
 
-def semantic_filter(tenders, threshold=0.35):
+# def semantic_filter(tenders, threshold=0.35):
+#     results = [score_tender(t, threshold) for t in tenders]
+#     df = pd.DataFrame(results)
+#     print(df[[
+#         'health_score', 'defence_score', 'corporate_score', 'pet_score',
+#         'health_pass',  'defence_pass',  'corporate_pass',  'pets_pass',
+#         'sector'
+#     ]])
+
+#     # filtered = [
+#     #     {**tender, **result}
+#     #     for tender, result in zip(tenders, results)
+#     #     if any([
+#     #         result["health_pass"],
+#     #         result["defence_pass"],
+#     #         result["corporate_pass"],
+#     #         result["pets_pass"],
+#     #     ])
+#     # ]
+#     filtered = [
+#         {**tender, **result}
+#         for tender, result in zip(tenders, results)
+#     ]
+#     print(f"Input tenders: {len(tenders)}")
+#     print(f"Filtered tenders: {len(filtered)}")
+#     # with open("uk_file.json", "w") as f:
+#     #     json.dump(filtered, f, indent=2)
+#     import os
+
+#     print("Writing JSON to:", os.path.abspath(output_file))
+
+#     with open(output_file, "w") as f:
+#         json.dump(filtered, f, indent=4)
+
+#     print("Exists:", os.path.exists(output_file))
+#     print("Size:", os.path.getsize(output_file), "bytes")
+#     print("Modified:", datetime.fromtimestamp(os.path.getmtime(output_file)))
+
+#     print(f"✓ Exported {len(filtered)} / {len(tenders)} tenders → uk_file.json")
+
+from datetime import datetime
+
+def semantic_filter(tenders, threshold=0.35, output_file=None):
+    
+    # Default output location
+    if output_file is None:
+        output_file = os.path.join(BASE_DIR, "all_tenders.json")
+
     results = [score_tender(t, threshold) for t in tenders]
+    run_timestamp = datetime.now().isoformat()
+
     df = pd.DataFrame(results)
     print(df[[
         'health_score', 'defence_score', 'corporate_score', 'pet_score',
-        'health_pass',  'defence_pass',  'corporate_pass',  'pets_pass',
+        'health_pass', 'defence_pass', 'corporate_pass', 'pets_pass',
         'sector'
     ]])
 
     # filtered = [
     #     {**tender, **result}
     #     for tender, result in zip(tenders, results)
-    #     if any([
-    #         result["health_pass"],
-    #         result["defence_pass"],
-    #         result["corporate_pass"],
-    #         result["pets_pass"],
-    #     ])
     # ]
     filtered = [
-        {**tender, **result}
+        {
+            **tender,
+            **result,
+            "GeneratedAt": run_timestamp
+        }
         for tender, result in zip(tenders, results)
     ]
+
     print(f"Input tenders: {len(tenders)}")
     print(f"Filtered tenders: {len(filtered)}")
-    with open("file.json", "w") as f:
-        json.dump(filtered, f, indent=2)
 
-    print(f"✓ Exported {len(filtered)} / {len(tenders)} tenders → file.json")
+    print(f"Writing JSON to: {output_file}")
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(filtered, f, indent=4, ensure_ascii=False)
+
+    print("Exists:", os.path.exists(output_file))
+    print("Size:", os.path.getsize(output_file), "bytes")
+    print("Modified:", datetime.fromtimestamp(os.path.getmtime(output_file)))
+
+    print(f"✓ Exported {len(filtered)} / {len(tenders)} tenders → {output_file}")

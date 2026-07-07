@@ -192,7 +192,7 @@ def calculate_score_color(score):
 # =====================================================================
 # PART 4: EXCEL GENERATION PIPELINE 
 # =====================================================================
-def json_to_excel(json_filename="file.json", excel_filename="live_tenders_pipeline.xlsx"):
+def json_to_excel(json_filename="all_tenders.json", excel_filename="all_tenders_pipeline.xlsx"):
     try:
         if os.path.exists(excel_filename):
             try:
@@ -324,6 +324,6 @@ def json_to_excel(json_filename="file.json", excel_filename="live_tenders_pipeli
 if __name__ == "__main__":
     print("📊 Initializing automatic Excel Compilation Pipeline...")
     json_to_excel(
-        json_filename="file.json",
-        excel_filename="live_tenders_pipeline.xlsx"
+        json_filename="all_tenders.json",
+        excel_filename="all_tenders_pipeline.xlsx"
     )

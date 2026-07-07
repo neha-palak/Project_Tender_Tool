@@ -1,19 +1,60 @@
 /* ═══════════════════════════════════════
    SAVED PORTFOLIO GRAPHICS GENERATION ENGINE
    ════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
+
+// Authoritative saved-tenders list, loaded from saved_tenders.xlsx via the
+// backend. The Excel file (written server-side on every star click) is the
+// single source of truth for "what's saved" — not localStorage.
+window.SensioSavedData = { tenders: [] };
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadSavedTendersFromServer();
   initializeSavedCountryDropdown();
   renderSavedTenders();
   registerSavedListeners();
 });
 
+async function loadSavedTendersFromServer() {
+  const endpoint = `${window.location.origin}/api/saved-tenders`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      mode: 'cors',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server returned invalid status code: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    window.SensioSavedData.tenders = Array.isArray(payload.tenders) ? payload.tenders : [];
+
+    // Merge into the shared dataset (dedup by id) so openTenderModal() in
+    // ui.js keeps working for saved items even if a tender has since
+    // fallen out of the live scraper sweep.
+    if (window.SensioData) {
+      await window.SensioData.ready;
+      const existingIds = new Set(window.SensioData.tenders.map(t => t.id));
+      window.SensioSavedData.tenders.forEach(t => {
+        if (!existingIds.has(t.id)) window.SensioData.tenders.push(t);
+      });
+    }
+
+    console.log(`⭐ Loaded ${window.SensioSavedData.tenders.length} saved tender(s) from saved_tenders.xlsx.`);
+  } catch (err) {
+    console.error('[Saved Tenders]: Could not reach backend. Ensure server.py is running!', err);
+    window.SensioSavedData.tenders = [];
+  }
+}
+
 function initializeSavedCountryDropdown() {
   const select = document.getElementById('savedCountrySelector');
   if (!select) return;
 
-  const savedIds = getSavedTenders();
-  const dataset = (window.SensioData?.tenders || []).filter(item => savedIds.includes(item.id));
-  const uniqueCountries = [...new Set(dataset.map(item => item.country))].sort();
+  const dataset = window.SensioSavedData.tenders;
+  const uniqueCountries = [...new Set(dataset.map(item => item.country).filter(Boolean))].sort();
 
   select.innerHTML = '<option value="all">🌍 All Countries</option>';
   uniqueCountries.forEach(country => {
@@ -40,25 +81,21 @@ function renderSavedTenders() {
   const countryVal = document.getElementById('savedCountrySelector')?.value || 'all';
   const sectorVal  = document.getElementById('savedSectorSelector')?.value || 'all';
 
-  const savedIds = getSavedTenders();
-  let filtered = (window.SensioData?.tenders || []).filter(item => savedIds.includes(item.id));
+  let filtered = [...window.SensioSavedData.tenders];
 
-  // Search filter
   if (searchVal.trim() !== '') {
-    filtered = filtered.filter(item => 
-      item.title.toLowerCase().includes(searchVal) || 
-      item.description.toLowerCase().includes(searchVal)
+    filtered = filtered.filter(item =>
+      (item.title || '').toLowerCase().includes(searchVal) ||
+      (item.description || '').toLowerCase().includes(searchVal)
     );
   }
 
-  // Country filter
   if (countryVal !== 'all') {
-    filtered = filtered.filter(item => item.country.toLowerCase() === countryVal);
+    filtered = filtered.filter(item => (item.country || '').toLowerCase() === countryVal);
   }
 
-  // Sector filter
   if (sectorVal !== 'all') {
-    filtered = filtered.filter(item => item.category.toLowerCase() === sectorVal);
+    filtered = filtered.filter(item => (item.category || '').toLowerCase() === sectorVal);
   }
 
   const counter = document.getElementById('savedCounterMetric');
@@ -83,13 +120,14 @@ function renderSavedTenders() {
 
     return `
       <div class="tender-card fade-in-up">
-        <button class="save-btn saved" onclick="handleSaveToggle('${item.id}', this)" title="Remove from Saved">⭐</button>
+        <button class="save-btn saved" onclick="unsaveTenderFromSavedPage('${item.id}', this)" title="Remove from Saved">⭐</button>
         <div>
           <h3 class="tender-card-title">${item.title}</h3>
           ${badgeHtml}
           <div class="tender-card-dates">
             <div class="date-row"><span class="date-label">Opening Phase:</span><span class="date-val">${item.openingDate}</span></div>
             <div class="date-row"><span class="date-label">Deadline Phase:</span><span class="date-val">${item.closingDate}</span></div>
+            ${item.starredBy ? `<div class="date-row"><span class="date-label">Starred by:</span><span class="date-val">${item.starredBy}</span></div>` : ''}
           </div>
         </div>
         <div class="relevancy-score-container">
@@ -100,4 +138,38 @@ function renderSavedTenders() {
       </div>
     `;
   }).join('');
+}
+
+/*
+  Unsave waits for the server to confirm the row was actually updated in
+  saved_tenders.xlsx before touching the UI. If the request fails or gets
+  cut off (e.g. by navigation), the card stays put and the button
+  re-enables — so the UI can never silently drift ahead of the Excel file.
+*/
+function unsaveTenderFromSavedPage(tenderId, buttonEl) {
+  const founderName = typeof getCurrentFounder === 'function' ? getCurrentFounder() : null;
+  if (buttonEl) buttonEl.disabled = true;
+
+  fetch(`${window.location.origin}/api/save-tender`, {
+    method: 'POST',
+    mode: 'cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tenderId: tenderId, isSaved: false, founderName: founderName })
+  })
+    .then(res => {
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      return res.json();
+    })
+    .then(data => {
+      console.log('[Saved Tenders]: Removed, saved count is now', data.savedCount);
+      if (window.SensioSavedIds) window.SensioSavedIds.delete(String(tenderId));
+      window.SensioSavedData.tenders = window.SensioSavedData.tenders.filter(t => t.id !== tenderId);
+      renderSavedTenders();
+      initializeSavedCountryDropdown();
+    })
+    .catch(err => {
+      console.error('[Saved Tenders]: Failed to remove from backend.', err);
+      alert('Could not remove this tender — the server did not confirm the change. Please try again.');
+      if (buttonEl) buttonEl.disabled = false;
+    });
 }

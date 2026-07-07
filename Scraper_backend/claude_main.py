@@ -225,6 +225,18 @@ def getElementQueryString(elementKey, adapter):
 
 
 def get_element(page, elementKey, adapter, trueElement=False):
+    config = adapter[elementKey]
+
+    # "label"-type fields (e.g. {"type": "label", "label": "Published"}) can't be
+    # resolved by getElementQueryString — it only understands strings/lists and was
+    # never extended to handle this dict format. Route those through a dedicated
+    # text-based lookup instead of falling through to the generic selector builder
+    # (which previously stringified the dict into invalid JS and threw a SyntaxError).
+    if isinstance(config, dict) and config.get("type") == "label":
+        if trueElement:
+            return None
+        return get_value_by_label(page, adapter, config["label"])
+
     handle = page.evaluate_handle(
         f"() => {getElementQueryString(elementKey, adapter)}"
     )
@@ -239,6 +251,117 @@ def get_element(page, elementKey, adapter, trueElement=False):
         return get_element_inner_text(False, element)
     else:
         return element
+
+
+# def get_value_by_label(page, adapter, label):
+#     """
+#     Finds a field's value by locating an element containing the given label text
+#     (e.g. "Published", "Submission deadline") and returning the associated value.
+
+#     Built around the GOV.UK Design System "summary list" pattern, which is what
+#     Find a Tender notice pages use for these metadata fields:
+
+#         <div class="govuk-summary-list__row">
+#             <dt class="govuk-summary-list__key">Published</dt>
+#             <dd class="govuk-summary-list__value">15 March 2024</dd>
+#         </div>
+
+#     Falls back to plain dt/dd, th/td, and "label text followed by a sibling
+#     element" patterns in case the markup differs from the above.
+
+#     NOTE: this was written against the documented GOV.UK summary-list component,
+#     not verified against a live page in this environment (no network access here).
+#     If it still doesn't pick up the right text, inspect a real notice page and
+#     confirm the actual key/value element classes, then adjust the selectors below.
+#     """
+#     scope = get_iframe_query_string(True, adapter) if adapter["iframe"][0] == "True" else "document"
+#     escaped_label = label.replace("\\", "\\\\").replace('"', '\\"')
+
+#     try:
+#         result = page.evaluate(
+#             f"""
+#             () => {{
+#                 const root = {scope};
+#                 if (!root) return null;
+
+#                 const target = "{escaped_label}".toLowerCase();
+
+#                 // 1. GOV.UK summary-list style key/value rows
+#                 const rows = root.querySelectorAll('.govuk-summary-list__row, dl > div, tr');
+#                 for (const row of rows) {{
+#                     const keyEl = row.querySelector('.govuk-summary-list__key, dt, th');
+#                     const valEl = row.querySelector('.govuk-summary-list__value, dd, td');
+#                     if (keyEl && valEl) {{
+#                         const keyText = keyEl.innerText.trim().toLowerCase();
+#                         if (keyText === target || keyText.startsWith(target)) {{
+#                             return valEl.innerText.trim();
+#                         }}
+#                     }}
+#                 }}
+
+#                 // 2. Fallback: a leaf element whose own text matches the label;
+#                 //    take the value from its next sibling element
+#                 const candidates = root.querySelectorAll('dt, th, span, p, li, div, strong, b');
+#                 for (const el of candidates) {{
+#                     if (el.children.length > 0) continue;
+#                     const text = el.innerText.trim().toLowerCase();
+#                     if (text === target || text.startsWith(target)) {{
+#                         const sib = el.nextElementSibling;
+#                         if (sib && sib.innerText.trim()) return sib.innerText.trim();
+#                     }}
+#                 }}
+
+#                 return null;
+#             }}
+#             """
+#         )
+#     except Exception:
+#         result = None
+
+#     return result if result else "-"
+
+def get_value_by_label(page, adapter, label):
+    scope = (
+        get_iframe_query_string(True, adapter)
+        if adapter["iframe"][0] == "True"
+        else "document"
+    )
+
+    escaped = label.replace("\\", "\\\\").replace('"', '\\"')
+
+    result = page.evaluate(f"""
+    () => {{
+        const root = {scope};
+        if (!root) return "-";
+
+        const target = "{escaped}".toLowerCase();
+
+        const labels = [...root.querySelectorAll("p.govuk-body-s")];
+
+        for (const lbl of labels) {{
+            const text = lbl.innerText.trim().toLowerCase();
+
+            if (text === target) {{
+                let node = lbl.nextElementSibling;
+
+                while (node) {{
+                    const value = node.innerText.trim();
+
+                    if (value)
+                        return value;
+
+                    node = node.nextElementSibling;
+                }}
+            }}
+        }}
+
+        return "-";
+    }}
+    """)
+
+    print(f"{label} -> {result}")   # temporary debug
+
+    return result
 
 
 def get_element_inner_text(failedToFindElement, element):
@@ -428,10 +551,21 @@ def extract_currency_and_budget(value):
     # Fetch these values from online
     currency_map = {"EUR": 95, "USD": 83, "GBP": 111, "INR": 1}
 
-    for curr in currency_map.keys():
-        if curr in text.upper():
+    # Currency symbols, since real tender pages almost always show "£1,234"
+    # rather than the literal word "GBP" — the code-word check below rarely
+    # matched anything on the UK site, leaving currency as None.
+    symbol_map = {"£": "GBP", "€": "EUR", "$": "USD", "₹": "INR"}
+
+    for symbol, curr in symbol_map.items():
+        if symbol in text:
             currency = curr
             break
+
+    if currency is None:
+        for curr in currency_map.keys():
+            if curr in text.upper():
+                currency = curr
+                break
 
     numbers = re.findall(
         r'\d[\d,]*',
@@ -588,9 +722,13 @@ def runMainLogic(page, parent, keyword, category, adapter, timer=1):
                         if keyword not in keywords:
                             keywords.append(keyword)
 
-                        cached_tender["Keywords"] = keywords
-
-                        r.set(redis_key, json.dumps(cached_tender))
+                        # Refresh with the freshly scraped data instead of keeping the
+                        # stale cached blob — previously only Keywords got merged here,
+                        # so a re-scrape's corrected fields (e.g. dates) were discarded
+                        # and the original (possibly wrong) cached values stuck around
+                        # forever, even after fixing the extraction logic.
+                        tender_object["Keywords"] = keywords
+                        r.set(redis_key, json.dumps(tender_object))
                         print(f"Updated existing tender -> {primary_key}")
 
                     else:
@@ -710,9 +848,13 @@ def runMainLogic(page, parent, keyword, category, adapter, timer=1):
                         if keyword not in keywords:
                             keywords.append(keyword)
 
-                        cached_tender["Keywords"] = keywords
-
-                        r.set(redis_key, json.dumps(cached_tender))
+                        # Refresh with the freshly scraped data instead of keeping the
+                        # stale cached blob — previously only Keywords got merged here,
+                        # so a re-scrape's corrected fields (e.g. dates) were discarded
+                        # and the original (possibly wrong) cached values stuck around
+                        # forever, even after fixing the extraction logic.
+                        tender_object["Keywords"] = keywords
+                        r.set(redis_key, json.dumps(tender_object))
                         print(f"Updated existing tender -> {primary_key}")
 
                     else:
@@ -830,9 +972,10 @@ def runMainLogic(page, parent, keyword, category, adapter, timer=1):
                 if keyword not in keywords:
                     keywords.append(keyword)
 
-                cached_tender["Keywords"] = keywords
-
-                r.set(redis_key, json.dumps(cached_tender))
+                # Refresh with the freshly scraped data instead of keeping the
+                # stale cached blob — see note in the other two branches above.
+                tender_object["Keywords"] = keywords
+                r.set(redis_key, json.dumps(tender_object))
                 print(f"Updated existing tender -> {primary_key}")
 
             else:
@@ -1209,7 +1352,22 @@ for key in r.scan_iter("tender:*"):
 
 
 print("Running Layer 2: Semantic Embedding Filter...")
-semantic_filter(all_tenders)
+print(f"Tenders collected: {len(all_tenders)}")
+
+# semantic_filter(all_tenders)
+
+# export_redis_to_json_and_clear(
+#     r,
+#     json_filename="uk_file.json"
+# )
+
+
+OUTPUT_JSON = os.path.join(BASE_DIR, "uk_file.json")
+
+semantic_filter(
+    all_tenders,
+    output_file=OUTPUT_JSON
+)
 
 
 RUN_LLM_LAYER = False
@@ -1224,7 +1382,14 @@ else:
     print("Skipping Layer 3 (LLM scoring).")
 
 print("📊 Compiling Final Excel...")
-json_to_excel(json_filename="uk_file.json", excel_filename="uk_live_tenders_pipeline.xlsx")
+with open("uk_file.json") as f:
+    print(f"JSON contains {len(json.load(f))} tenders")
+# json_to_excel(json_filename="uk_file.json", excel_filename="uk_live_tenders_pipeline.xlsx")
+
+json_to_excel(
+    json_filename=OUTPUT_JSON,
+    excel_filename=os.path.join(BASE_DIR, "uk_live_tenders_pipeline.xlsx")
+)
 
 end_time = time.perf_counter()
 print(f"Execution time: {end_time - start_time:.4f} seconds")
