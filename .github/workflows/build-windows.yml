@@ -14,39 +14,21 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # - name: Build EXE
-      #   run: |
-      #     pyinstaller --windowed ^
-      #       --name TenderTool ^
-      #       --add-data "Website;Website" ^
-      #       desktop_app.py
-      # - name: Build EXE
-      #   run: >
-      #     pyinstaller
-      #     --windowed
-      #     --name TenderTool
-      #     --add-data "Website;Website"
-      #     desktop_app.py
-      # - name: Build EXE
-      #   # run: pyinstaller --windowed --name TenderTool --hidden-import Website_frontend.server --add-data "Website_frontend;Website_frontend" desktop_app.py
-      #   run: pyinstaller ^
-      #     --onefile ^
-      #     --windowed ^
-      #     --name TenderTool ^
-      #     --hidden-import Website_frontend.server ^
-      #     --add-data "Website_frontend;Website_frontend" ^
-      #     desktop_app.py
+      # Builds from TenderTool.spec (same spec used for the macOS .app). The spec's
+      # BUNDLE step is macOS-only and PyInstaller simply skips it on Windows, leaving
+      # a dist/TenderTool/ folder containing TenderTool.exe + its _internal payload.
       - name: Build EXE
-        run: pyinstaller --onefile --windowed --name TenderTool --hidden-import Website_frontend.server --add-data "Website_frontend;Website_frontend" windows_app.py
+        run: pyinstaller TenderTool.spec --noconfirm --clean
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: TenderTool-Windows
-          path: dist/
+          path: dist/TenderTool

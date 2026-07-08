@@ -1,3 +1,4 @@
+import sys
 import threading
 import time
 import webview
@@ -30,5 +31,13 @@ window = webview.create_window(
     height=900
 )
 
-# webview.start()
-webview.start(gui="edgechromium")
+# EdgeChromium is a Windows-only backend; on macOS/Linux pywebview must pick its
+# native backend (WebKit on macOS) instead, so only request EdgeChromium on
+# Windows and fall back to the default if it isn't available.
+if sys.platform.startswith("win"):
+    try:
+        webview.start(gui="edgechromium")
+    except Exception:
+        webview.start()
+else:
+    webview.start()

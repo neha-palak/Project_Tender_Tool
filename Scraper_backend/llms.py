@@ -176,7 +176,12 @@ adapters = [
     {
         "url": "https://www.gebiz.gov.sg/ptn/opportunity/BOListing.xhtml",
         "iframe": ["False"],
-        "refreshMode": "navigation",
+        # gebiz search is AJAX (JSF mojarra.ab) — the results reload in place and
+        # the URL never changes. With "navigation" the submit waited the full 30s
+        # for a navigation that never fires, then ~15s polling the URL, for every
+        # keyword. "dom" watches the results signature instead and returns as soon
+        # as the AJAX result set changes.
+        "refreshMode": "dom",
         "keywordSearchBox": [[2, "input.inputText_MAIN"]],
         "submitButton": '.subBannerSearchBar_BUTTON-GO',
         "IdentifierForTenderList": [[1, ".formRepeat_MAIN"], ".formColumns_MAIN"],
@@ -233,7 +238,11 @@ adapters = [
         "TimePeriod": [[6, ".tablebg"], [1, "tbody"], [6, "tr"], [3, ".td_field"]],
         "TenderValue": [[6, ".tablebg"], [1, "tbody"], [5, "tr"], [1, ".td_field"]],
         "BackButton": [True, [[1, 'a[title="Back"]']]],
-        "ResultsIndicatorText": "No Records Found",
+        # This MoD portal shows "No Tenders found." (not "No Records Found") when
+        # a search returns nothing. The old text never matched, so empty-result
+        # keywords weren't detected as empty and each one hung ~60s in runMainLogic
+        # waiting for tender cards that never appear.
+        "ResultsIndicatorText": "No Tenders found",
         "Country": "India"
     },
     # {
@@ -258,7 +267,11 @@ adapters = [
         "refreshMode": "dom",
         "keywordSearchBox": "input#searchterm",
         "submitButton": "input#searchterm",  # search filters live as you type — no submit button
-        "IdentifierForTenderList": ["div.tender-grid", "div.tender-card"],
+        # Must select the grid as a single element ([1, ...]) before querying cards
+        # inside it. Two bare strings generate `querySelectorAll(...).querySelectorAll(...)`,
+        # and a NodeList has no querySelectorAll — that threw a TypeError inside
+        # install_custom_selector_loop, so no cards were ever tagged.
+        "IdentifierForTenderList": [[1, "div.tender-grid"], "div.tender-card"],
         "NextPageButton": "button.outlined-btn",  # the "Load more" button
         "InitialTenderLinks": "a.filled-btn",     # the "View details" link
         "ResultsIndicatorText": "No results found",
@@ -1149,8 +1162,22 @@ for adapter in adapters:
     threads.append(thread)
     thread.start()
 
+# Bound the TOTAL scrape wall-clock with one shared deadline. Joining each thread
+# with its own timeout in sequence means a single hung adapter costs the full
+# timeout and the *next* join then waits another full timeout — so N stuck adapters
+# ≈ N×timeout. A shared deadline caps the whole wait no matter how many adapters
+# stall. A healthy thread finishes on its own (join returns early), so this cap only
+# bites when a thread genuinely hangs — set it high enough that normal scraping of
+# every keyword completes. Tenders are written to Redis as they're found, so the
+# final count scales directly with how long the productive threads are allowed to
+# run: lower this for a faster/partial run, raise it for a more complete one.
+OVERALL_TIMEOUT = 1800  # 30 min safety cap; real runs finish sooner
+deadline = time.monotonic() + OVERALL_TIMEOUT
 for thread in threads:
-    thread.join(timeout=600)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        break
+    thread.join(timeout=remaining)
 
 # Signal any still-running threads to stop
 stop_event.set()

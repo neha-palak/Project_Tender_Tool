@@ -2,9 +2,11 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pandas as pd
 import os
+import glob
 import smtplib
 import datetime
 import re
+import threading
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import sys
@@ -36,87 +38,116 @@ def apply_cors_headers(response):
 NOTIFIED_ALERTS_DB = set()  # Prevents duplicate email spams
 
 # ═══════════════════════════════════════════════════════════════
-# SAVED TENDERS PERSISTENCE LAYER
+# SHARED DATA LOCATION
 # ═══════════════════════════════════════════════════════════════
-SAVED_EXCEL_PATH = os.path.join(BASE_DIR, "saved_tenders.xlsx")
+# All shared data — the weekly scrape output plus each founder's saved list —
+# lives in ONE folder so the 3-4 people pointing at the same Google Drive-synced
+# folder see a single source of truth instead of drifting local copies. Set
+# TENDER_DATA_DIR to the shared Drive folder on each machine; it falls back to the
+# app's own folder for standalone/local use. Static site files (html/js/css) still
+# come from BASE_DIR (bundled in the exe) — only the data files move here.
+def _resolve_data_dir():
+    env = os.environ.get("TENDER_DATA_DIR", "").strip()
+    if env:
+        return env
+    if getattr(sys, "frozen", False):
+        # In a packaged app, BASE_DIR (_MEIPASS) is a temp extraction folder that
+        # is wiped on every launch — saved files written there would vanish. Fall
+        # back to a persistent user folder. For the shared Google Drive setup,
+        # point TENDER_DATA_DIR at the synced folder instead.
+        persistent = os.path.join(os.path.expanduser("~"), "TenderToolData")
+        os.makedirs(persistent, exist_ok=True)
+        return persistent
+    return BASE_DIR
+
+
+DATA_DIR = _resolve_data_dir()
+LIVE_EXCEL_PATH = os.path.join(DATA_DIR, "all_tenders_pipeline.xlsx")
+
+# ═══════════════════════════════════════════════════════════════
+# SAVED TENDERS PERSISTENCE LAYER  (one file per founder)
+# ═══════════════════════════════════════════════════════════════
+# Google Drive has no cross-machine file locking: if two people wrote the SAME
+# saved file at once, Drive would silently create a "(conflicted copy)" and drop
+# one person's stars. So each founder writes ONLY their own saved_<name>.xlsx and
+# never touches anyone else's — two machines can never collide. Reads MERGE every
+# founder file into one shared list, and "Starred By" is derived from which files
+# contain a given tender. Saved rows are snapshots of the tender at save time, so
+# they survive even after the weekly scrape drops the tender from the live sheet.
+SAVED_EXCEL_LOCK = threading.Lock()   # serializes this process's writes to its own file
+
+
+def _founder_slug(founder_name: str) -> str:
+    """Filesystem-safe token for a founder's saved file name."""
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "_", str(founder_name).strip())
+    return slug.strip("_") or "unknown"
+
+
+def saved_path_for(founder_name: str) -> str:
+    return os.path.join(DATA_DIR, f"saved_{_founder_slug(founder_name)}.xlsx")
+
+
+# The pre-split single file is named saved_tenders.xlsx, which also matches the
+# saved_*.xlsx glob — exclude it so it's never mistaken for a founder named "tenders"
+# (and so migration correctly sees "no per-founder files yet").
+LEGACY_SAVED_NAME = "saved_tenders.xlsx"
+
+
+def list_saved_files() -> list:
+    """Every founder's saved file currently present in the shared folder."""
+    return sorted(
+        p for p in glob.glob(os.path.join(DATA_DIR, "saved_*.xlsx"))
+        if os.path.basename(p) != LEGACY_SAVED_NAME
+    )
+
+
+def _founder_from_path(path: str) -> str:
+    base = os.path.basename(path)
+    if base.startswith("saved_") and base.endswith(".xlsx"):
+        return base[len("saved_"):-len(".xlsx")]
+    return base
 
 
 def load_saved_ids() -> set:
-    """Load saved tender Primary Keys from Excel on startup."""
-    if not os.path.exists(SAVED_EXCEL_PATH):
+    """Union of saved Primary Keys across ALL founder files, re-read from disk so
+    stars added on another machine (and synced via Drive) are picked up. Used for
+    the expiry-alert emails (team-wide watchlist), NOT for per-user star state."""
+    ids = set()
+    for path in list_saved_files():
+        try:
+            df = pd.read_excel(path)
+            if "Primary Key" in df.columns:
+                ids.update(df["Primary Key"].astype(str).tolist())
+        except Exception as e:
+            print(f"[!] Could not read {os.path.basename(path)}: {e}")
+    return ids
+
+
+def load_saved_ids_for(founder_name: str) -> set:
+    """Saved Primary Keys for ONE founder (their file only) — powers the per-user
+    star state so a founder only sees stars filled on tenders THEY saved."""
+    path = saved_path_for(founder_name)
+    if not os.path.exists(path):
         return set()
     try:
-        df = pd.read_excel(SAVED_EXCEL_PATH)
+        df = pd.read_excel(path)
         if "Primary Key" in df.columns:
             return set(df["Primary Key"].astype(str).tolist())
     except Exception as e:
-        print(f"[!] Could not load saved_tenders.xlsx: {e}")
+        print(f"[!] Could not read {os.path.basename(path)}: {e}")
     return set()
 
 
-# def save_tender_to_excel(tender_id: str):
-#     """Append a tender row (pulled from live Excel) to saved_tenders.xlsx."""
-#     live_excel = os.path.join(BASE_DIR, "all_tenders_pipeline.xlsx")
-#     if not os.path.exists(live_excel):
-#         print("[!] Live Excel not found, cannot save tender.")
-#         return
-
-#     try:
-#         df_live = pd.read_excel(live_excel)
-#         df_live = df_live.fillna("")
-#         df_live["Primary Key"] = df_live["Primary Key"].astype(str)
-
-#         # Find the matching row in live data
-#         row = df_live[df_live["Primary Key"] == tender_id]
-#         if row.empty:
-#             print(f"[!] Tender {tender_id} not found in live Excel.")
-#             return
-
-#         if os.path.exists(SAVED_EXCEL_PATH):
-#             df_saved = pd.read_excel(SAVED_EXCEL_PATH)
-#             df_saved = df_saved.fillna("")
-#             df_saved["Primary Key"] = df_saved["Primary Key"].astype(str)
-#             # Skip if already saved (deduplicate)
-#             if tender_id in df_saved["Primary Key"].values:
-#                 return
-#             df_merged = pd.concat([df_saved, row], ignore_index=True)
-#         else:
-#             df_merged = row.copy()
-
-#         df_merged.to_excel(SAVED_EXCEL_PATH, index=False)
-#         print(f"[✓] Tender {tender_id} saved to saved_tenders.xlsx")
-
-#     except Exception as e:
-#         print(f"[✕] Failed to save tender {tender_id}: {e}")
-
-
-# def remove_tender_from_excel(tender_id: str):
-#     """Remove a tender row from saved_tenders.xlsx."""
-#     if not os.path.exists(SAVED_EXCEL_PATH):
-#         return
-#     try:
-#         df = pd.read_excel(SAVED_EXCEL_PATH)
-#         df["Primary Key"] = df["Primary Key"].astype(str)
-#         df = df[df["Primary Key"] != tender_id]
-#         df.to_excel(SAVED_EXCEL_PATH, index=False)
-#         print(f"[✓] Tender {tender_id} removed from saved_tenders.xlsx")
-#     except Exception as e:
-#         print(f"[✕] Failed to remove tender {tender_id}: {e}")
-
-import threading
-SAVED_EXCEL_LOCK = threading.Lock()   # serializes all reads/writes to saved_tenders.xlsx
-
 def save_tender_to_excel(tender_id: str, founder_name: str):
-    """Append/update a tender row in saved_tenders.xlsx, tracking who starred it."""
-    live_excel = os.path.join(BASE_DIR, "all_tenders_pipeline.xlsx")
-    if not os.path.exists(live_excel):
+    """Append a tender row (snapshot pulled from the live scrape) to THIS founder's
+    file only. No-op if the tender is already in that founder's file."""
+    if not os.path.exists(LIVE_EXCEL_PATH):
         print("[!] Live Excel not found, cannot save tender.")
         return
-
+    path = saved_path_for(founder_name)
     with SAVED_EXCEL_LOCK:
         try:
-            df_live = pd.read_excel(live_excel)
-            df_live = df_live.fillna("")
+            df_live = pd.read_excel(LIVE_EXCEL_PATH).fillna("")
             df_live["Primary Key"] = df_live["Primary Key"].astype(str)
 
             row = df_live[df_live["Primary Key"] == tender_id].copy()
@@ -124,68 +155,99 @@ def save_tender_to_excel(tender_id: str, founder_name: str):
                 print(f"[!] Tender {tender_id} not found in live Excel.")
                 return
 
-            if os.path.exists(SAVED_EXCEL_PATH):
-                df_saved = pd.read_excel(SAVED_EXCEL_PATH)
-                df_saved = df_saved.fillna("")
+            if os.path.exists(path):
+                df_saved = pd.read_excel(path).fillna("")
                 df_saved["Primary Key"] = df_saved["Primary Key"].astype(str)
-                if "Starred By" not in df_saved.columns:
-                    df_saved["Starred By"] = ""
-            else:
-                df_saved = pd.DataFrame(columns=list(row.columns) + ["Starred By"])
-
-            existing = df_saved[df_saved["Primary Key"] == tender_id]
-
-            if not existing.empty:
-                idx = existing.index[0]
-                current_names = [n.strip() for n in str(df_saved.at[idx, "Starred By"]).split(",") if n.strip()]
-                if founder_name not in current_names:
-                    current_names.append(founder_name)
-                df_saved.at[idx, "Starred By"] = ", ".join(current_names)
-            else:
-                row["Starred By"] = founder_name
+                if tender_id in df_saved["Primary Key"].values:
+                    return  # already saved by this founder
                 df_saved = pd.concat([df_saved, row], ignore_index=True)
+            else:
+                df_saved = row
 
-            df_saved.to_excel(SAVED_EXCEL_PATH, index=False)
-            print(f"[✓] Tender {tender_id} saved by {founder_name} to saved_tenders.xlsx")
-
+            df_saved.to_excel(path, index=False)
+            print(f"[✓] Tender {tender_id} saved by {founder_name} -> {os.path.basename(path)}")
         except Exception as e:
-            print(f"[✕] Failed to save tender {tender_id}: {e}")
+            print(f"[✕] Failed to save tender {tender_id} for {founder_name}: {e}")
 
 
 def remove_tender_from_excel(tender_id: str, founder_name: str):
-    """Remove one founder's name from a tender's 'Starred By' list.
-    Only drops the row entirely once nobody has it starred anymore."""
-    if not os.path.exists(SAVED_EXCEL_PATH):
+    """Drop a tender from THIS founder's file only. Other founders' saves of the
+    same tender are untouched — so the merged view keeps showing it as theirs."""
+    path = saved_path_for(founder_name)
+    if not os.path.exists(path):
         return
     with SAVED_EXCEL_LOCK:
         try:
-            df = pd.read_excel(SAVED_EXCEL_PATH)
-            df = df.fillna("")
+            df = pd.read_excel(path).fillna("")
             df["Primary Key"] = df["Primary Key"].astype(str)
-            if "Starred By" not in df.columns:
-                df["Starred By"] = ""
-
-            match = df[df["Primary Key"] == tender_id]
-            if match.empty:
-                return
-            idx = match.index[0]
-            current_names = [n.strip() for n in str(df.at[idx, "Starred By"]).split(",") if n.strip()]
-            if founder_name in current_names:
-                current_names.remove(founder_name)
-
-            if current_names:
-                df.at[idx, "Starred By"] = ", ".join(current_names)
-            else:
-                df = df.drop(index=idx)
-
-            df.to_excel(SAVED_EXCEL_PATH, index=False)
-            print(f"[✓] Tender {tender_id} unstarred by {founder_name} (remaining: {current_names or 'none — row removed'})")
+            before = len(df)
+            df = df[df["Primary Key"] != tender_id]
+            if len(df) == before:
+                return  # this founder hadn't saved it
+            df.to_excel(path, index=False)
+            print(f"[✓] Tender {tender_id} unstarred by {founder_name} -> {os.path.basename(path)}")
         except Exception as e:
-            print(f"[✕] Failed to remove tender {tender_id}: {e}")
+            print(f"[✕] Failed to remove tender {tender_id} for {founder_name}: {e}")
 
-# Load saved IDs into memory on startup
+
+def merge_saved_tenders() -> list:
+    """Merge every founder file into one deduplicated list, deriving 'Starred By'
+    from which files contain each tender. Returns raw pandas rows + starred set."""
+    merged = {}   # tender_id -> {"row": Series, "starredBy": [names]}
+    order = []
+    for path in list_saved_files():
+        founder = _founder_from_path(path)
+        try:
+            df = pd.read_excel(path).fillna("")
+        except Exception as e:
+            print(f"[!] Could not read {os.path.basename(path)}: {e}")
+            continue
+        if "Primary Key" not in df.columns:
+            continue
+        df["Primary Key"] = df["Primary Key"].astype(str)
+        for _, row in df.iterrows():
+            tid = str(row.get("Primary Key"))
+            if tid not in merged:
+                merged[tid] = {"row": row, "starredBy": []}
+                order.append(tid)
+            if founder not in merged[tid]["starredBy"]:
+                merged[tid]["starredBy"].append(founder)
+    return [(tid, merged[tid]["row"], merged[tid]["starredBy"]) for tid in order]
+
+
+def _migrate_legacy_saved():
+    """One-time, non-destructive split of an old single saved_tenders.xlsx (with a
+    'Starred By' column) into per-founder files. Skips if any per-founder file
+    already exists. Leaves the original file in place as a backup."""
+    legacy = os.path.join(DATA_DIR, LEGACY_SAVED_NAME)
+    if not os.path.exists(legacy) or list_saved_files():
+        return
+    try:
+        df = pd.read_excel(legacy).fillna("")
+        if "Primary Key" not in df.columns:
+            return
+        by_founder = {}
+        for _, row in df.iterrows():
+            names = [n.strip() for n in str(row.get("Starred By", "")).split(",") if n.strip()]
+            if not names:
+                names = ["unknown"]
+            clean = row.drop(labels=["Starred By"], errors="ignore")
+            for name in names:
+                by_founder.setdefault(name, []).append(clean)
+        for name, rows in by_founder.items():
+            pd.DataFrame(rows).to_excel(saved_path_for(name), index=False)
+        print(f"[✓] Migrated legacy saved_tenders.xlsx into {len(by_founder)} per-founder file(s).")
+    except Exception as e:
+        print(f"[!] Legacy saved migration skipped: {e}")
+
+
+_migrate_legacy_saved()
+
+# In-memory union, used only for the expiry-alert emails during the stream. It is
+# refreshed from disk on each stream call so Drive-synced changes from other
+# machines are reflected.
 SAVED_TENDERS_DB = load_saved_ids()
-print(f"[✓] Loaded {len(SAVED_TENDERS_DB)} saved tenders from disk.")
+print(f"[✓] Loaded {len(SAVED_TENDERS_DB)} saved tenders across {len(list_saved_files())} founder file(s). Data dir: {DATA_DIR}")
 
 # ═══════════════════════════════════════════════════════════════
 # GMAIL CONFIGURATION KEYS
@@ -198,25 +260,25 @@ def send_gmail_notification(subject, html_content):
     if GMAIL_USER == "your-email@gmail.com" or GMAIL_APP_PASS == "your-app-password-here":
         print(f"[!] Notification skipped. Set up credentials to deliver email: {subject}")
         return False
-        
+
     try:
         # Set up safe SMTP communication portal with Gmail
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From'] = GMAIL_USER
         msg['To'] = RECEIVER_EMAIL
-        
+
         # Inject the HTML design body
         part = MIMEText(html_content, 'html')
         msg.attach(part)
-        
+
         # Connect to secure server node
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(GMAIL_USER, GMAIL_APP_PASS)
         server.sendmail(GMAIL_USER, RECEIVER_EMAIL, msg.as_string())
         server.quit()
-        
+
         print(f"[✓] Notification Email dispatched successfully: {subject}")
         return True
     except Exception as e:
@@ -229,7 +291,7 @@ def send_gmail_notification(subject, html_content):
 def calculate_days_remaining(closing_date_str):
     try:
         # Dynamic fix: always checks against today's date instead of a hardcoded day
-        anchor_date = pd.to_datetime(datetime.now().date())
+        anchor_date = pd.to_datetime(datetime.datetime.now().date())
         closing_date = pd.to_datetime(str(closing_date_str).split(' ')[0])
         return (closing_date - anchor_date).days
     except:
@@ -240,18 +302,25 @@ def calculate_days_remaining(closing_date_str):
 # ═══════════════════════════════════════════════════════════════
 @app.route('/api/sensio-stream', methods=['GET'])
 def stream_excel_data():
-    excel_path = os.path.join(BASE_DIR, "all_tenders_pipeline.xlsx")
-    
+    excel_path = LIVE_EXCEL_PATH
+
     print("Current working dir:", os.getcwd())
     print("Excel path:", excel_path)
     print("Exists?", os.path.exists(excel_path))
     if not os.path.exists(excel_path):
         return jsonify({"error": f"{excel_path} file not found locally", "tenders": []}), 200
+
+    # Refresh saved-tender union from disk so expiry alerts reflect the current
+    # (possibly Drive-synced) state of every founder's file.
+    saved_ids_now = load_saved_ids()
+    SAVED_TENDERS_DB.clear()
+    SAVED_TENDERS_DB.update(saved_ids_now)
+
     try:
         # Read the Excel sheet using pandas
         df = pd.read_excel(excel_path)
         df = df.fillna("")
-        
+
         tenders_pool = []
         for idx, row in df.iterrows():
             tender_id = str(row.get("Primary Key", f"TEN-{idx}"))
@@ -260,19 +329,19 @@ def stream_excel_data():
             country = row.get("Country", "Global")
             opening_date = str(row.get("Opening date", "N/A"))
             closing_date = str(row.get("Closing date", "N/A"))
-            
+
             raw_relevancy = row.get("Relevancy Score", 0.50)
             try:
                 relevancy_score = float(raw_relevancy)
             except:
                 relevancy_score = 0.50
-                
+
             raw_budget = row.get("INR Budget Maximum", 0)
             try:
                 budget_inr = int(re.sub(r'[^\d]', '', str(raw_budget)))
             except:
                 budget_inr = 0
-                
+
             description = row.get("Description", "")
             eligibility = f"Authority: {row.get('Organisation name', 'Unknown')}"
             link = row.get("Tender URL", "https://google.com")
@@ -349,23 +418,6 @@ def stream_excel_data():
 # ═══════════════════════════════════════════════════════════════
 # CROSS-ORIGIN BACKEND SYNCHRONIZATION ENDPOINT
 # ═══════════════════════════════════════════════════════════════
-# @app.route('/api/save-tender', methods=['POST'])
-# def sync_saved_state():
-#     data = request.get_json() or {}
-#     tender_id = str(data.get("tenderId", ""))
-#     is_saved = data.get("isSaved", False)
-
-#     if not tender_id:
-#         return jsonify({"error": "Missing parameter: tenderId"}), 400
-
-#     if is_saved:
-#         SAVED_TENDERS_DB.add(tender_id)
-#         save_tender_to_excel(tender_id)       # ← persist to Excel
-#     else:
-#         SAVED_TENDERS_DB.discard(tender_id)
-#         remove_tender_from_excel(tender_id)   # ← remove from Excel
-
-#     return jsonify({"status": "success", "savedCount": len(SAVED_TENDERS_DB)}), 200
 @app.route('/api/save-tender', methods=['POST'])
 def sync_saved_state():
     data = request.get_json() or {}
@@ -379,31 +431,23 @@ def sync_saved_state():
         return jsonify({"error": "Missing parameter: founderName"}), 400
 
     if is_saved:
-        SAVED_TENDERS_DB.add(tender_id)
         save_tender_to_excel(tender_id, founder_name)
     else:
         remove_tender_from_excel(tender_id, founder_name)
-        # Row might still be saved by a different founder — recheck before
-        # dropping it from the in-memory set used for expiry-alert emails.
-        still_saved = load_saved_ids()
-        if tender_id in still_saved:
-            SAVED_TENDERS_DB.add(tender_id)
-        else:
-            SAVED_TENDERS_DB.discard(tender_id)
+
+    # Refresh the in-memory union (used for expiry emails) in place.
+    fresh = load_saved_ids()
+    SAVED_TENDERS_DB.clear()
+    SAVED_TENDERS_DB.update(fresh)
 
     return jsonify({"status": "success", "savedCount": len(SAVED_TENDERS_DB)}), 200
 
 @app.route('/api/saved-tenders', methods=['GET'])
 def get_saved_tenders():
-    """Return the full list of saved tenders from saved_tenders.xlsx."""
-    if not os.path.exists(SAVED_EXCEL_PATH):
-        return jsonify({"tenders": []}), 200
+    """Return the merged saved list across all founder files (shared view)."""
     try:
-        df = pd.read_excel(SAVED_EXCEL_PATH)
-        df = df.fillna("")
         tenders = []
-        for idx, row in df.iterrows():
-            tender_id = str(row.get("Primary Key", f"TEN-{idx}"))
+        for tender_id, row, starred_by in merge_saved_tenders():
             link = row.get("Tender URL", "https://google.com")
             if isinstance(link, dict) and "text" in link:
                 link = link["text"]
@@ -429,7 +473,7 @@ def get_saved_tenders():
                 "description": row.get("Description", ""),
                 "eligibility": f"Authority: {row.get('Organisation name', 'Unknown')}",
                 "link": link,
-                "starredBy": row.get("Starred By", ""),
+                "starredBy": ", ".join(starred_by),
                 "saved": True,
             })
         return jsonify({"tenders": tenders}), 200
@@ -439,8 +483,15 @@ def get_saved_tenders():
 
 @app.route('/api/saved-ids', methods=['GET'])
 def get_saved_ids():
-    """Return just the set of saved Primary Keys — used on frontend load to restore star state."""
-    return jsonify({"savedIds": list(SAVED_TENDERS_DB)}), 200
+    """Per-founder star state for the dashboard / All Tenders pages: a star is
+    filled only for tenders the CURRENT founder saved, not ones teammates saved.
+    Pass ?founder=<name>; with no founder, return empty (nothing is 'mine' yet).
+    Re-read from disk each call so Drive-synced changes are reflected."""
+    founder = request.args.get('founder', '').strip()
+    if not founder:
+        return jsonify({"savedIds": []}), 200
+    return jsonify({"savedIds": list(load_saved_ids_for(founder))}), 200
+
 from flask import send_from_directory
 
 @app.route("/")

@@ -121,7 +121,9 @@ function executePipelineQueryRender() {
     const daysLeft = calculateDaysRemaining(item.closingDate);
     let badgeHtml = '';
 
-    if (daysLeft < 0) {
+    if (isNaN(daysLeft)) {
+      badgeHtml = `<div class="urgency-badge" style="background-color:#f3f4f6; color:#6b7280;">No deadline</div>`;
+    } else if (daysLeft < 0) {
       badgeHtml = `<div class="urgency-badge" style="background-color:#fee2e2; color:#ef4444;">Expired</div>`;
     } else if (daysLeft <= 7) {
       badgeHtml = `<div class="urgency-badge urgency-closing">⏰ Closing Soon (${daysLeft}d remaining)</div>`;

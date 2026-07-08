@@ -146,10 +146,27 @@ function setupModalDismissals() {
 }
 
 function calculateDaysRemaining(targetDateStr) {
-  const target = new Date(targetDateStr);
-  const current = new Date("2026-05-21");
-  const diffTime = target - current;
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (!targetDateStr) return NaN;
+  const s = String(targetDateStr).trim();
+  if (!s || s.toLowerCase() === 'n/a') return NaN;
+
+  // Parse "YYYY-MM-DD" from its parts to avoid the UTC-vs-local off-by-one that
+  // `new Date("2026-08-01")` (parsed as UTC midnight) causes in most timezones.
+  let target;
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    target = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  } else {
+    target = new Date(s);
+  }
+  if (isNaN(target.getTime())) return NaN;
+
+  // Compare against TODAY (not a hardcoded date), at day granularity so a tender
+  // closing today reads as 0 and tomorrow as 1.
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  return Math.round((startOfTarget - startOfToday) / (1000 * 60 * 60 * 24));
 }
 // 👈 replace with your actual 3 founder names
 const FOUNDER_NAMES = ["Venkatesh", "Kenneth", "Mohan"];
@@ -189,13 +206,26 @@ function showIdentityModal(onSelect) {
   `;
   document.body.appendChild(overlay);
 
-  document.getElementById('founderIdentityConfirmBtn').addEventListener('click', () => {
+  document.getElementById('founderIdentityConfirmBtn').addEventListener('click', async () => {
     const name = document.getElementById('founderIdentitySelect').value;
     setCurrentFounder(name);
     document.body.removeChild(overlay);
     updateIdentityBadge();
+    // Reload star state for the newly-chosen founder and re-render so stars
+    // reflect THIS person's saves (not whoever was signed in before).
+    await refreshSavedStateForCurrentFounder();
     onSelect(name);
   });
+}
+
+// Re-pull the current founder's saved ids, then re-render whatever page is open.
+async function refreshSavedStateForCurrentFounder() {
+  if (typeof reloadSavedIdsForCurrentFounder === 'function') {
+    await reloadSavedIdsForCurrentFounder();
+  }
+  if (typeof executePipelineQueryRender === 'function') executePipelineQueryRender();
+  if (typeof renderTopTenWidget === 'function') renderTopTenWidget();
+  if (typeof renderSavedTenders === 'function') renderSavedTenders();
 }
 
 function updateIdentityBadge() {

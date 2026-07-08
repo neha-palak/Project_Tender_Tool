@@ -8,9 +8,28 @@ window.SensioData = {
   ready: new Promise(resolve => { resolveSensioDataReady = resolve; })
 };
 
-// Single source of truth for "is this tender starred" — always pulled from
-// the backend (saved_tenders.xlsx), never from localStorage.
+// Single source of truth for "is this tender starred BY ME" — pulled from the
+// backend scoped to the current founder, never from localStorage. A star is only
+// filled for tenders the signed-in founder saved, not ones teammates saved.
 window.SensioSavedIds = new Set();
+
+// (Re)load the current founder's own saved ids. Call again after the founder
+// switches so the stars update to that person's saves.
+async function reloadSavedIdsForCurrentFounder() {
+  const founder = localStorage.getItem('sensio_founder_identity') || '';
+  try {
+    const idsRes = await fetch(
+      `http://127.0.0.1:5001/api/saved-ids?founder=${encodeURIComponent(founder)}`,
+      { method: 'GET', mode: 'cors', headers: { 'Accept': 'application/json' } }
+    );
+    if (idsRes.ok) {
+      const idsPayload = await idsRes.json();
+      window.SensioSavedIds = new Set((idsPayload.savedIds || []).map(String));
+    }
+  } catch (err) {
+    console.error('[Saved IDs]: Could not load saved-ids from backend.', err);
+  }
+}
 
 (async function initializeSensioExcelStream() {
   const endpoint = 'http://127.0.0.1:5001/api/sensio-stream';
@@ -29,20 +48,10 @@ window.SensioSavedIds = new Set();
     window.SensioData.tenders = [];
   }
 
-  // Load the real saved-ids straight from the backend — this replaces the
-  // old localStorage re-sync entirely. saved_tenders.xlsx is the only
-  // source of truth for what's starred, on every page, every load.
-  try {
-    const idsRes = await fetch('http://127.0.0.1:5001/api/saved-ids', {
-      method: 'GET', mode: 'cors', headers: { 'Accept': 'application/json' }
-    });
-    if (idsRes.ok) {
-      const idsPayload = await idsRes.json();
-      window.SensioSavedIds = new Set((idsPayload.savedIds || []).map(String));
-    }
-  } catch (err) {
-    console.error('[Saved IDs]: Could not load saved-ids from backend.', err);
-  }
+  // Load the current founder's own saved-ids from the backend (per-user star
+  // state). If no founder is chosen yet, this returns empty and the identity
+  // modal will trigger a reload once they pick who they are.
+  await reloadSavedIdsForCurrentFounder();
 
   if (typeof resolveSensioDataReady === 'function') {
     resolveSensioDataReady(window.SensioData);

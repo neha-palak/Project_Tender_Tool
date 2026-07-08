@@ -243,9 +243,14 @@ def json_to_excel(json_filename="all_tenders.json", excel_filename="all_tenders_
                 delta = parsed_close_dt.date() - datetime.now().date()
                 days_remaining = max(0, delta.days)
 
-            raw_status = "Open For Submission"
-            if any(term in raw_status for term in ["COMING", "OPENING", "FUTURE", "PLANNED", "UPCOMING"]):
-                resolved_status = "Coming Soon"
+            # Derive status from the closing date instead of hardcoding "Open":
+            #   - no / unparseable closing date -> Unknown
+            #   - closing date already passed    -> Closed
+            #   - closing date today or future   -> Open
+            if parsed_close_dt is None:
+                resolved_status = "Unknown"
+            elif parsed_close_dt.date() < datetime.now().date():
+                resolved_status = "Closed"
             else:
                 resolved_status = "Open"
 
@@ -287,6 +292,8 @@ def json_to_excel(json_filename="all_tenders.json", excel_filename="all_tenders_
 
         green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
         yellow_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+        red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        gray_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
 
         with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name="Tenders")
@@ -306,6 +313,10 @@ def json_to_excel(json_filename="all_tenders.json", excel_filename="all_tenders_
                     status_cell.fill = green_fill
                 elif status_cell.value == "Coming Soon":
                     status_cell.fill = yellow_fill
+                elif status_cell.value == "Closed":
+                    status_cell.fill = red_fill
+                elif status_cell.value == "Unknown":
+                    status_cell.fill = gray_fill
 
             for col in worksheet.columns:
                 max_len = 0

@@ -1,5 +1,46 @@
 [
   {
+    "Primary Key": "86d8034849b793504f530f6755fa158a",
+    "Tender Title": "Smart Wearable Devices (Activate Programme)",
+    "Tender Description": "Milton Keynes City Council are currently out to tender for supply of smart wearable devices (wrist worn) that measure physical activity, and which can be integrated into a digital intervention including a mobile app and financial incentives designed to promote physical activity in people living with type 2 diabetes. The device will be used in a community-based clinical trial and must therefore be acceptable to diverse adult users. Milton Keynes City Council (MKCC) is the Contracting Authority, acting on behalf of MKHCP . Milton Keynes Health and Care Partnership (MKHCP) are piloting a digital incentive scheme to support people with type 2 diabetes to be physically active.\n\nThe trial is a partnership between MKCC, Milton Keynes University Hospital NHS Foundation Trust (MKUH), and Loughborough University.",
+    "Organisation Name": "Milton Keynes City Council",
+    "Tender Status": "Closed",
+    "Award Date": "not available",
+    "Country": "United Kingdom",
+    "Sector": "Health",
+    "Budget Currency": "GBP",
+    "Budget in Local Currency Minimum": 150000,
+    "Budget in Local Currency Maximum": 150000,
+    "Budget in INR Minimum": 16050000,
+    "Budget in INR Maximum": 16050000,
+    "Opening Date": "03 October 2025",
+    "Expiry Date": "24 October 2025",
+    "Timeline": 21,
+    "Link to the Tender": "https://www.find-tender.service.gov.uk/Notice/062246-2025?origin=SearchResults&p=1",
+    "Keywords": [
+      "wearable",
+      "wearable device",
+      "wearable devices"
+    ],
+    "Keyword included": "wearable",
+    "Order Quantity": "",
+    "Special Observation": "",
+    "Eligibility": "",
+    "Application Status": "Not Applied",
+    "Current Applicants": "",
+    "health_score": 0.4491,
+    "defence_score": 0.2733,
+    "corporate_score": 0.3594,
+    "pet_score": 0.2222,
+    "health_pass": true,
+    "defence_pass": false,
+    "corporate_pass": true,
+    "pets_pass": false,
+    "sector": "Health",
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
+    "LLM_RelevancyScore": 10.0
+  },
+  {
     "Primary Key": "c98de453f0396d1e3be0f9391a47c5d7",
     "Tender Title": "NHSE Market Engagement Event for Virtual Wards and Virtual Care Dashboard and Wearables",
     "Tender Description": "The NHS England South East Virtual Wards and Virtual Care Team are holding a market engagement event on 24th April 2024 either at a central London venue or virtually via MS Teams, depending on capacity. This event will be presented by clinicians and senior leaders involved in Virtual Wards and Virtual Care across South East Region Integrated Care Boards. This event is an opportunity for suppliers to understand customer needs and have questions clarified by clinicians. Interested suppliers should take note of a generic draft specification for remote wearables and dashboards, developed to support ICBs which can be found on Atamis(see details below). We are keen to understand the maturity of the market against this draft specification for the development of a Virtual Care strategy. Interested suppliers should note that this exercise is a market engagement exercise only. Any future competitions or opportunities will not be directly linked to this notice. Interested suppliers should be clear that feedback provided at this event is a fundamental step in developing the Virtual Care strategy to support growth of Virtual Ward and Virtual Care services. Participation in the engagement exercise is not a mandatory requirement for participating in any potential future procurement. To register interest to attend the market engagement event, please complete the survey using the link below or the link that can be found on Atamis: https://forms.office.com/e/wFNd8m3sNj This exercise and any subsequent responses are in no way legally binding on any party. This notice, and the subsequent event, is an information gathering exercise rather than a call for competition in its own right and therefore publication or response does not commit NHSE South East regions or respondents to a future procurement, nor provide any process exemptions or preferential treatment to any parties expressing an interest. Commissioners are looking to establish what capability there might be in providing such a service from suitably qualified, capable and competent organisations. NHSE South East will not be liable for costs incurred by any interested party in participating in this exercise. Interested parties should note that a response to this notice does not guarantee an automatic invitation to any subsequent formal procurement, which the commissioners will consider in due course.",
@@ -8,7 +49,7 @@
     "Award Date": "not available",
     "Country": "United Kingdom",
     "Sector": "Health",
-    "Budget Currency": "GBP",
+    "Budget Currency": "",
     "Budget in Local Currency Minimum": "",
     "Budget in Local Currency Maximum": "",
     "Budget in INR Minimum": "",
@@ -35,7 +76,7 @@
     "corporate_pass": true,
     "pets_pass": false,
     "sector": "Health",
-    "GeneratedAt": "2026-07-07T14:55:58.763784",
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
     "LLM_RelevancyScore": 10.0
   },
   {
@@ -76,8 +117,8 @@
     "corporate_pass": true,
     "pets_pass": true,
     "sector": "Corporate",
-    "GeneratedAt": "2026-07-07T14:55:58.763784",
-    "LLM_RelevancyScore": 10.0
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
+    "LLM_RelevancyScore": 7.5
   },
   {
     "Primary Key": "c318ba1966ecae9d68ed2e49351ef996",
@@ -115,8 +156,8 @@
     "corporate_pass": true,
     "pets_pass": false,
     "sector": "Corporate",
-    "GeneratedAt": "2026-07-07T14:55:58.763784",
-    "LLM_RelevancyScore": 10.0
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
+    "LLM_RelevancyScore": 5.0
   },
   {
     "Primary Key": "b549b557f4cd74252b0fdb65b45c6dac",
@@ -155,13 +196,13 @@
     "corporate_pass": true,
     "pets_pass": true,
     "sector": "Corporate",
-    "GeneratedAt": "2026-07-07T14:55:58.763784",
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
     "LLM_RelevancyScore": 10.0
   },
   {
     "Primary Key": "cec7f8d634fd6d119ff44a39362393c2",
     "Tender Title": "Market Engagement - Virtual Ward Remote Monitoring - Wearable Devices for NHS Devon ICSD",
-    "Tender Description": "The Devon Integrated Care System (ICSD) are undertaking market engagement to further develop their virtual ward model and explore options for using remote monitoring, wearable technology at scale to support and enable the care of patients outside the traditional hospital ward. ICSD currently operates a virtual ward service but is looking to scale this across the entire ICS geography and expand into multiple pathways. This will include Frailty and Respiratory as part of the national NHSE programme mandate, but also additional pathways based on local demand need across the diverse Local Care Partnership areas of Devon. We hope to deliver the first tranche of these additional virtual ward 'beds' in December of 2022. There are a multitude of care pathways, across a wide variety of conditions, which could in future be delivered as part of this new way of caring for patients. We want to ensure that the steps we take now lay the foundations for future expansion of both capacity and capability. We are looking at wearable remote monitoring technology to collect and assimilate a wide range of data metrics from patients on these wards (e.g. heart rate, Oxygen, temperature etc.). These technologies need to be highly configurable to map to the specific needs of a virtual ward, whilst remaining easy to use for patients with a strong UX design ethos. The data collected from these technologies must integrate seamlessly with the EpRs in place in our Acute Hospital Trusts our Community Providers as well as GP practice IT systems, depending on how we choose to configure the virtual ward. The technologies need to be constantly evolving and developing in line with advances in the global tele health market. This exercise is focused on wearable technology, and not on platforms to host virtual ward services. To support this market engagement, a questionnaire has been posted at https://forms.office.com/Pages/DesignPageV2.aspx?origin=NeoPortalPage&subpage=design&id=slTDN7CF9UeyIge0jXdO45YvF8pSJ7xFsTjHjkMaPqNURTdBR0NTRUsyUDNJTVQ1TFBFRjRBT01VVi4u This questionnaire seeks to gain an understanding of products available that may fit our local requirements and help to inform a specification for the procurement of wearable technology for our developing virtual ward services. Information gathered will support the next steps in strategic development for this programme, including the identification of suitable routes to procurement. Suppliers who wish to participate in this engagement exercise are requested to complete the questionnaire by 5pm (BST) on the 17 of October 2022 If you require any further assistance, please contact scwcsu.clinical.procurement@nhs.net This process is being carried out by NHS South, Central and West Commissioning Support Unit (SCW) on behalf of the Commissioners. For the avoidance of doubt, this notice is an information gathering exercise rather than a call for competition in its own right, and therefore publication or response does not commit Commissioner(s) or respondents to a future procurement, nor provide any process exemptions or preferential treatment to any parties expressing an interest. Commissioners are looking to establish what interest there might be in providing such a service from suitably qualified, capable and competent organisations. Commissioner(s) will not be liable for costs incurred by any interested party in participating in this exercise. Interested parties should note that a response to this notice does not guarantee an automatic invitation to any subsequent formal procurement, which the commissioners will consider in due course.",
+    "Tender Description": "The Devon Integrated Care System (ICSD) are undertaking market engagement to further develop their virtual ward model and explore options for using remote monitoring, wearable technology at scale to support and enable the care of patients outside the traditional hospital ward. ICSD currently operates a virtual ward service but is looking to scale this across the entire ICS geography and expand into multiple pathways. This will include Frailty and Respiratory as part of the national NHSE programme mandate, but also additional pathways based on local demand need across the diverse Local Care Partnership areas of Devon. We hope to deliver the first tranche of these additional virtual ward 'beds' in December of 2022. There are a multitude of care pathways, across a wide variety of conditions, which could in future be delivered as part of this new way of caring for patients. We want to ensure that the steps we take now lay the foundations for future expansion of both capacity and capability. We are looking at wearable remote monitoring technology to collect and assimilate a wide range of data metrics from patients on these wards (e.g. heart rate, Oxygen, temperature etc.). These technologies need to be highly configurable to map to the specific needs of a virtual ward, whilst remaining easy to use for patients with a strong UX design ethos. The data collected from these technologies must integrate seamlessly with the EpRs in place in our Acute Hospital Trusts our Community Providers as well as GP practice IT systems, depending on how we choose to configure the virtual ward. The technologies need to be constantly evolving and developing in line with advances in the global tele health market. This exercise is focused on wearable technology, and not on platforms to host virtual ward services. To support this market engagement, a questionnaire has been posted at https://forms.office.com/Pages/DesignPageV2.aspx?origin=NeoPortalPage&subpage=design&id=slTDN7CF9UeyIge0jXdO45YvF8pSJ7xFsTjHjkMaPqNURTdBR0NTRUsyUDNJTVQ1TFBFRjRBT01VVi4u This questionnaire seeks to gain an understanding of products available that may fit our local requirements and help to inform a specification for the procurement of wearable technology for our developing virtual ward services. Information gathered will support the next steps in strategic development for this programme, including the identification of suitable routes to procurement. Suppliers who wish to participate in this engagement exercise are requested to complete the questionnaire by 5pm (BST) on the 17 of October 2022. If you require any further assistance, please contact scwcsu.clinical.procurement@nhs.net. This process is being carried out by NHS South, Central and West Commissioning Support Unit (SCW) on behalf of the Commissioners. For the avoidance of doubt, this notice is an information gathering exercise rather than a call for competition in its own right, and therefore publication or response does not commit Commissioner(s) or respondents to a future procurement, nor provide any process exemptions or preferential treatment to any parties expressing an interest. Commissioners are looking to establish what interest there might be in providing such a service from suitably qualified, capable and competent organisations. Commissioner(s) will not be liable for costs incurred by any interested party in participating in this exercise. Interested parties should note that a response to this notice does not guarantee an automatic invitation to any subsequent formal procurement, which the commissioners will consider in due course.",
     "Organisation Name": "NHS Devon Integrated Care System (ICSD)",
     "Tender Status": "Closed",
     "Award Date": "not available",
@@ -198,7 +239,7 @@
     "corporate_pass": true,
     "pets_pass": true,
     "sector": "Health",
-    "GeneratedAt": "2026-07-07T14:55:58.763784",
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
     "LLM_RelevancyScore": 10.0
   },
   {
@@ -237,7 +278,7 @@
     "corporate_pass": true,
     "pets_pass": true,
     "sector": "Health",
-    "GeneratedAt": "2026-07-07T14:55:58.763784",
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
     "LLM_RelevancyScore": 7.5
   },
   {
@@ -276,7 +317,46 @@
     "corporate_pass": true,
     "pets_pass": false,
     "sector": "Health",
-    "GeneratedAt": "2026-07-07T14:55:58.763784",
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
+    "LLM_RelevancyScore": 2.5
+  },
+  {
+    "Primary Key": "1333782a83663433a57fdb0cd5ec8dd4",
+    "Tender Title": "Law Enforcement Wearable Safety Lights",
+    "Tender Description": "The South-West Police Procurement Service (\"SWPPS\") is currently undertaking preliminary market engagement and considering route to market options for a future procurement process for the supply of wearable, hands-free safety lights for operational officers across Devon and Cornwall, Avon and Somerset, Dorset, Wiltshire, and Gloucestershire police forces. The potential requirement is anticipated to consist of the purchase of up to 8,000 devices, although no commitment is made at this stage. We are seeking engagement from established suppliers of wearable safety lights that are suitable for law enforcement and emergency service applications. Responses from all interested suppliers are welcomed. The purpose of the preliminary market engagement with the market, prior to undertaking any future procurement process, is to seek input from the market to inform our requirements, help develop our specification, understand the products and solutions available, and identify the most appropriate route to market.",
+    "Organisation Name": "The Chief Constable for Devon and Cornwall Police",
+    "Tender Status": "Open",
+    "Award Date": "not available",
+    "Country": "United Kingdom",
+    "Sector": "Health",
+    "Budget Currency": "",
+    "Budget in Local Currency Minimum": "",
+    "Budget in Local Currency Maximum": "",
+    "Budget in INR Minimum": "",
+    "Budget in INR Maximum": "",
+    "Opening Date": "08 July 2026",
+    "Expiry Date": "28 July 2026",
+    "Timeline": 20,
+    "Link to the Tender": "https://www.find-tender.service.gov.uk/Notice/063882-2026?origin=SearchResults&p=1",
+    "Keywords": [
+      "wearable"
+    ],
+    "Keyword included": "wearable",
+    "Order Quantity": "",
+    "Special Observation": "",
+    "Eligibility": "",
+    "Application Status": "Not Applied",
+    "Current Applicants": "",
+    "health_score": 0.4036,
+    "defence_score": 0.4825,
+    "corporate_score": 0.4561,
+    "pet_score": 0.2974,
+    "health_pass": true,
+    "defence_pass": true,
+    "corporate_pass": true,
+    "pets_pass": false,
+    "sector": "Defence",
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
     "LLM_RelevancyScore": 2.5
   },
   {
@@ -298,8 +378,8 @@
     "Timeline": 14,
     "Link to the Tender": "https://www.gebiz.gov.sg/ptn/opportunity/opportunityDetails.xhtml",
     "Keywords": [
-      "wearable",
-      "heart rate monitor"
+      "heart rate monitor",
+      "wearable"
     ],
     "Keyword included": "heart rate monitor",
     "Order Quantity": "",
@@ -316,7 +396,7 @@
     "corporate_pass": true,
     "pets_pass": true,
     "sector": "Health",
-    "GeneratedAt": "2026-07-07T14:55:58.763784",
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
     "LLM_RelevancyScore": 10.0
   },
   {
@@ -355,7 +435,7 @@
     "corporate_pass": true,
     "pets_pass": false,
     "sector": "Health",
-    "GeneratedAt": "2026-07-07T14:55:58.763784",
-    "LLM_RelevancyScore": 10.0
+    "GeneratedAt": "2026-07-08T22:40:13.564931",
+    "LLM_RelevancyScore": 7.5
   }
 ]
