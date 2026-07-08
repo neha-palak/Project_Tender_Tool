@@ -1,41 +1,32 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Cross-platform build spec for the Tender dashboard desktop app.
-#   macOS   -> dist/TenderTool.app  (via BUNDLE)  + dist/TenderTool/
-#   Windows -> dist/TenderTool/     (folder with TenderTool.exe; BUNDLE is a no-op)
-# Build with:  pyinstaller TenderTool.spec  --noconfirm
-from PyInstaller.utils.hooks import collect_all
+# Build spec for the Tender dashboard. It launches Flask and opens the default
+# browser (no bundled webview). Single-file output so it drops cleanly next to the
+# shared data in one folder:
+#   macOS   -> dist/TenderTool.app   (double-clickable bundle; quit from the Dock)
+#   Windows -> dist/TenderTool.exe   (BUNDLE is a no-op on Windows; close the
+#                                     console window to stop it)
+# Build with:  pyinstaller TenderTool.spec --noconfirm
+import sys
 
 datas = [('Website_frontend', 'Website_frontend')]
-binaries = []
-hiddenimports = []
-
-# pywebview ships platform backends + JS assets that must be pulled in explicitly.
-for pkg in ('webview',):
-    d, b, h = collect_all(pkg)
-    datas += d
-    binaries += b
-    hiddenimports += h
-
-# openpyxl is imported lazily by pandas' Excel engine, so pin it as a hidden import.
-hiddenimports += ['openpyxl']
+hiddenimports = ['openpyxl']
 
 # The dashboard only reads/writes Excel via pandas — it never touches the ML /
-# scraper stack. Those get dragged in transitively (transformers -> torch, etc.)
-# and balloon the build to ~560MB, so exclude them explicitly. Verified safe:
-# `import Website_frontend.server` pulls none of these.
+# scraper stack, which gets pulled in transitively and would balloon the build.
+# Also drop pywebview: we open the system browser instead of a native window.
 excludes = [
     'torch', 'torchvision', 'torchaudio',
     'transformers', 'sentence_transformers', 'tokenizers',
     'sklearn', 'scipy', 'sympy', 'numba',
     'redis', 'playwright', 'playwright_stealth',
     'matplotlib', 'IPython', 'notebook', 'PIL',
+    'webview',
 ]
-
 
 a = Analysis(
     ['desktop_app.py'],
     pathex=[],
-    binaries=binaries,
+    binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
@@ -47,34 +38,31 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+# Keep a console window on Windows so closing it stops the background server.
+# The macOS .app is windowless and is quit from the Dock.
+_console = sys.platform.startswith('win')
+
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='TenderTool',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=False,
+    runtime_tmpdir=None,
+    console=_console,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
 )
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=False,
-    upx_exclude=[],
-    name='TenderTool',
-)
 app = BUNDLE(
-    coll,
+    exe,
     name='TenderTool.app',
     icon=None,
     bundle_identifier='in.sensio.tendertool',

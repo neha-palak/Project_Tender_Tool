@@ -51,13 +51,16 @@ def _resolve_data_dir():
     if env:
         return env
     if getattr(sys, "frozen", False):
-        # In a packaged app, BASE_DIR (_MEIPASS) is a temp extraction folder that
-        # is wiped on every launch — saved files written there would vanish. Fall
-        # back to a persistent user folder. For the shared Google Drive setup,
-        # point TENDER_DATA_DIR at the synced folder instead.
-        persistent = os.path.join(os.path.expanduser("~"), "TenderToolData")
-        os.makedirs(persistent, exist_ok=True)
-        return persistent
+        # Packaged app: keep data in the SAME folder as the executable, so the
+        # weekly all_tenders_pipeline.xlsx and each founder's saved_<name>.xlsx
+        # sit right next to the app. Point that folder at Google Drive to share.
+        exe = os.path.abspath(sys.executable)
+        marker = ".app/Contents/MacOS/"
+        idx = exe.replace("\\", "/").find(marker)
+        if idx != -1:
+            # Inside a macOS .app bundle -> the folder that CONTAINS the .app.
+            return os.path.dirname(exe[: idx + len(".app")])
+        return os.path.dirname(exe)
     return BASE_DIR
 
 

@@ -17,7 +17,7 @@ from google.genai import types
 from google.genai.errors import ClientError
 
 # =====================================================================
-# PART 0: GEMINI API KEY CONFIG + ROTATION (same pattern as llms.py)
+# PART 0: GEMINI API KEY CONFIG + ROTATION (same pattern as main.py)
 # =====================================================================
 # Set GEMINI_API_KEYS="key1,key2" in .env, or fall back to a single GEMINI_API_KEY.
 _raw_keys = os.environ.get("GEMINI_API_KEYS", "") or os.environ.get("GEMINI_API_KEY", "")
@@ -107,7 +107,7 @@ def generate_with_rotation(model, contents, config):
     """
     Calls client.models.generate_content, rotating across configured Gemini
     keys on a 429 instead of failing the tender outright. Mirrors the
-    extract_fields_with_gemini retry behavior in llms.py.
+    extract_fields_with_gemini retry behavior in main.py.
     """
     attempts = max(gemini_rotator.key_count(), 1) + 1  # +1 for the cooldown-wait retry
 
