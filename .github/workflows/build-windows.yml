@@ -23,7 +23,7 @@ jobs:
 
       # Builds from TenderTool.spec (same spec used for the macOS .app). The spec's
       # BUNDLE step is macOS-only and PyInstaller skips it on Windows, producing a
-      # single-file dist/TenderTool.exe.
+      # dist/TenderTool/ folder containing TenderTool.exe + its _internal payload.
       - name: Build EXE
         run: pyinstaller TenderTool.spec --noconfirm --clean
 
@@ -31,4 +31,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TenderTool-Windows
-          path: dist/TenderTool.exe
+          path: dist/TenderTool

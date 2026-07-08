@@ -51,16 +51,19 @@ def _resolve_data_dir():
     if env:
         return env
     if getattr(sys, "frozen", False):
-        # Packaged app: keep data in the SAME folder as the executable, so the
-        # weekly all_tenders_pipeline.xlsx and each founder's saved_<name>.xlsx
-        # sit right next to the app. Point that folder at Google Drive to share.
+        # Packaged app: data (the weekly all_tenders_pipeline.xlsx + each founder's
+        # saved_<name>.xlsx) lives NEXT TO the app, i.e. in the shared Drive folder.
+        # Resolve that folder consistently on both platforms so a mixed Mac/Windows
+        # team all read the same files:
+        #   macOS   -> the folder that CONTAINS TenderTool.app
+        #   Windows -> the folder that CONTAINS the TenderTool/ app folder
+        #              (the .exe lives one level down, inside TenderTool/)
         exe = os.path.abspath(sys.executable)
         marker = ".app/Contents/MacOS/"
         idx = exe.replace("\\", "/").find(marker)
         if idx != -1:
-            # Inside a macOS .app bundle -> the folder that CONTAINS the .app.
             return os.path.dirname(exe[: idx + len(".app")])
-        return os.path.dirname(exe)
+        return os.path.dirname(os.path.dirname(exe))
     return BASE_DIR
 
 

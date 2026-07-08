@@ -1,10 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 # Build spec for the Tender dashboard. It launches Flask and opens the default
-# browser (no bundled webview). Single-file output so it drops cleanly next to the
-# shared data in one folder:
-#   macOS   -> dist/TenderTool.app   (double-clickable bundle; quit from the Dock)
-#   Windows -> dist/TenderTool.exe   (BUNDLE is a no-op on Windows; close the
-#                                     console window to stop it)
+# browser (no bundled webview). One-DIR build for fast startup (a one-file build
+# re-extracts on every launch and takes ~20s+ before the server is ready):
+#   macOS   -> dist/TenderTool.app   (single double-clickable icon; the folder
+#                                      payload is hidden inside the bundle)
+#   Windows -> dist/TenderTool/       (folder with TenderTool.exe + _internal;
+#                                      BUNDLE is a no-op on Windows)
+# Data (all_tenders_pipeline.xlsx + saved_<name>.xlsx) lives NEXT TO the app on
+# macOS, or inside the TenderTool folder on Windows — point that at Google Drive.
 # Build with:  pyinstaller TenderTool.spec --noconfirm
 import sys
 
@@ -45,15 +48,13 @@ _console = sys.platform.startswith('win')
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='TenderTool',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    runtime_tmpdir=None,
     console=_console,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -61,8 +62,17 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
-app = BUNDLE(
+coll = COLLECT(
     exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name='TenderTool',
+)
+app = BUNDLE(
+    coll,
     name='TenderTool.app',
     icon=None,
     bundle_identifier='in.sensio.tendertool',
