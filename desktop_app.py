@@ -7,13 +7,19 @@ import time
 import webbrowser
 
 # In a windowless build (no console on Windows / no Terminal on macOS) PyInstaller
-# leaves stdout/stderr as None. Flask/Werkzeug still try to log, and writing to a
-# None stream would crash the app. Point them at the null device so any stray log
-# line is silently discarded instead.
-if sys.stdout is None:
-    sys.stdout = open(os.devnull, "w")
-if sys.stderr is None:
-    sys.stderr = open(os.devnull, "w")
+# leaves stdout/stderr as None. Flask/Werkzeug + our own startup prints still write
+# there, so a None stream would crash the app. Point them at the null device.
+# Use UTF-8 with errors="replace" so unicode banners/checkmarks in the code can't
+# blow up on Windows' default cp1252 console encoding (UnicodeEncodeError).
+for _name in ("stdout", "stderr"):
+    _stream = getattr(sys, _name)
+    if _stream is None:
+        setattr(sys, _name, open(os.devnull, "w", encoding="utf-8", errors="replace"))
+    else:
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
 # Keep the request log quiet — nothing is watching it, and we run windowless.
 logging.getLogger("werkzeug").setLevel(logging.ERROR)

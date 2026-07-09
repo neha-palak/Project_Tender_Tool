@@ -61,29 +61,70 @@ NOTIFIED_ALERTS_DB = set()  # Prevents duplicate email spams
 # TENDER_DATA_DIR to the shared Drive folder on each machine; it falls back to the
 # app's own folder for standalone/local use. Static site files (html/js/css) still
 # come from BASE_DIR (bundled in the exe) — only the data files move here.
+LIVE_EXCEL_BASENAME = "all_tenders_pipeline.xlsx"
+
+
+def _next_to_app_dir():
+    """The folder the packaged app 'lives in' — where data sits when the whole
+    thing is kept together (Windows, or a Mac app left next to its data)."""
+    exe = os.path.abspath(sys.executable)
+    marker = ".app/Contents/MacOS/"
+    idx = exe.replace("\\", "/").find(marker)
+    if idx != -1:
+        # macOS -> the folder that CONTAINS TenderTool.app
+        return os.path.dirname(exe[: idx + len(".app")])
+    # Windows -> the folder that CONTAINS the TenderTool-Windows/ app folder
+    # (the .exe lives one level down, inside it)
+    return os.path.dirname(os.path.dirname(exe))
+
+
+def _find_drive_data_dir():
+    """Locate the shared folder inside Google Drive for Desktop by looking for the
+    weekly Excel. Needed on Mac: a .app can't be launched from inside Drive, so
+    people unzip it to their Desktop — from there we still have to find the Drive
+    folder to read/write the shared files. Bounded search (a few levels under each
+    Drive mount) so it stays fast."""
+    home = os.path.expanduser("~")
+    roots = []
+    roots += glob.glob(os.path.join(home, "Library", "CloudStorage", "GoogleDrive-*", "My Drive"))
+    roots += glob.glob(os.path.join(home, "Library", "CloudStorage", "GoogleDrive-*", "Shared drives", "*"))
+    roots.append(os.path.join(home, "Google Drive"))            # legacy Drive client
+    roots.append(os.path.join(home, "Google Drive", "My Drive"))
+    roots.append("/Volumes/GoogleDrive/My Drive")               # older mount point
+    for root in roots:
+        if not os.path.isdir(root):
+            continue
+        for depth in ("*", os.path.join("*", "*"), os.path.join("*", "*", "*")):
+            hits = glob.glob(os.path.join(root, depth, LIVE_EXCEL_BASENAME))
+            if hits:
+                return os.path.dirname(hits[0])
+    return None
+
+
 def _resolve_data_dir():
+    # 1) Explicit override always wins (power users / the scraper).
     env = os.environ.get("TENDER_DATA_DIR", "").strip()
     if env:
         return env
     if getattr(sys, "frozen", False):
-        # Packaged app: data (the weekly all_tenders_pipeline.xlsx + each founder's
-        # saved_<name>.xlsx) lives NEXT TO the app, i.e. in the shared Drive folder.
-        # Resolve that folder consistently on both platforms so a mixed Mac/Windows
-        # team all read the same files:
-        #   macOS   -> the folder that CONTAINS TenderTool.app
-        #   Windows -> the folder that CONTAINS the TenderTool/ app folder
-        #              (the .exe lives one level down, inside TenderTool/)
-        exe = os.path.abspath(sys.executable)
-        marker = ".app/Contents/MacOS/"
-        idx = exe.replace("\\", "/").find(marker)
-        if idx != -1:
-            return os.path.dirname(exe[: idx + len(".app")])
-        return os.path.dirname(os.path.dirname(exe))
+        # 2) Data sitting right next to the app — the normal case on Windows (whole
+        #    folder synced in Drive) and any Mac app kept beside its data.
+        beside = _next_to_app_dir()
+        if os.path.exists(os.path.join(beside, LIVE_EXCEL_BASENAME)):
+            return beside
+        # 3) Mac app unzipped to the Desktop: hunt down the Drive folder so the
+        #    shared tenders + saves still work without any manual setup.
+        found = _find_drive_data_dir()
+        if found:
+            return found
+        # 4) Nothing found — fall back to next-to-app (dashboard shows empty and the
+        #    README's troubleshooting explains how to point TENDER_DATA_DIR).
+        return beside
     return BASE_DIR
 
 
 DATA_DIR = _resolve_data_dir()
-LIVE_EXCEL_PATH = os.path.join(DATA_DIR, "all_tenders_pipeline.xlsx")
+LIVE_EXCEL_PATH = os.path.join(DATA_DIR, LIVE_EXCEL_BASENAME)
 
 # ═══════════════════════════════════════════════════════════════
 # SAVED TENDERS PERSISTENCE LAYER  (one file per founder)
