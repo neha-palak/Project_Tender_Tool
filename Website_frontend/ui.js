@@ -228,6 +228,27 @@ async function refreshSavedStateForCurrentFounder() {
   if (typeof renderSavedTenders === 'function') renderSavedTenders();
 }
 
+function quitApp() {
+  const ok = confirm(
+    "Quit the Tender Tool?\n\n" +
+    "This stops the app on YOUR computer only — your teammates are not affected, " +
+    "and everything you've saved is already stored in the shared folder."
+  );
+  if (!ok) return;
+  // Tell the local server to shut itself down, then show a friendly closed screen.
+  // The request often never gets a response (the server exits mid-reply), so we
+  // update the page in .finally() regardless.
+  fetch('/api/shutdown', { method: 'POST' }).catch(() => {}).finally(() => {
+    document.body.innerHTML =
+      '<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; ' +
+      'font-family: system-ui, -apple-system, sans-serif; background:#f9fafb; color:#374151; ' +
+      'text-align:center; padding:40px;">' +
+      '<div><div style="font-size:44px; margin-bottom:16px;">👋</div>' +
+      '<h1 style="font-size:22px; margin:0 0 8px;">Tender Tool has shut down</h1>' +
+      '<p style="color:#6b7280; margin:0;">You can safely close this browser tab now.</p></div></div>';
+  });
+}
+
 function updateIdentityBadge() {
   const avatar = document.querySelector('.avatar');
   const name = getCurrentFounder();

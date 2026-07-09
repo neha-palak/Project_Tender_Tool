@@ -7,6 +7,7 @@ import smtplib
 import datetime
 import re
 import threading
+import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import sys
@@ -33,6 +34,20 @@ def apply_cors_headers(response):
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
     return response
+
+
+@app.route('/api/shutdown', methods=['POST'])
+def shutdown_app():
+    # Cleanly stop this local instance from the dashboard's "Quit App" button.
+    # Each founder runs their own copy pointed at the shared Drive folder, so
+    # exiting here only affects this machine. We send the HTTP response first,
+    # then hard-exit from a background thread a beat later so the reply actually
+    # reaches the browser (current Werkzeug has no in-request shutdown hook).
+    def _stop():
+        time.sleep(0.4)
+        os._exit(0)
+    threading.Thread(target=_stop, daemon=True).start()
+    return jsonify({"ok": True})
 
 # In-memory trackers for runtime state synchronization
 NOTIFIED_ALERTS_DB = set()  # Prevents duplicate email spams

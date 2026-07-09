@@ -41,10 +41,9 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-# Keep a console window on Windows so closing it stops the background server.
-# The macOS .app is windowless and is quit from the Dock.
-_console = sys.platform.startswith('win')
-
+# Windowless on both platforms — no black console window / Terminal, no log spam.
+# The app is quit from the dashboard's "Quit App" button (POST /api/shutdown),
+# which stops this local server cleanly.
 exe = EXE(
     pyz,
     a.scripts,
@@ -55,7 +54,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=_console,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

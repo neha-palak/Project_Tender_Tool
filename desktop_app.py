@@ -1,7 +1,22 @@
+import logging
+import os
 import socket
+import sys
 import threading
 import time
 import webbrowser
+
+# In a windowless build (no console on Windows / no Terminal on macOS) PyInstaller
+# leaves stdout/stderr as None. Flask/Werkzeug still try to log, and writing to a
+# None stream would crash the app. Point them at the null device so any stray log
+# line is silently discarded instead.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
+# Keep the request log quiet — nothing is watching it, and we run windowless.
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 from Website_frontend.server import app
 
